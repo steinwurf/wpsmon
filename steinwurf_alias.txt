@@ -4,3 +4,5 @@
 78:f8:82:ed:32:71=Nexus 5x SW1
 34:12:98:4a:b7:d3=Deutsche Telekom iPad mini
 90:fd:61:2c:5d:17=Golden iPhone 5
+34:ab:37:22:26:41=Deutsche Telekom iPad
+54:e4:3a:e2:d3:44=Silver iPad mini
