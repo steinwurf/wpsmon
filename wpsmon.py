@@ -33,10 +33,16 @@ import dpkt
 import pcapy
 
 
+def mac_string(mac):
+    """Convert mac to string."""
+    return ':'.join('{0:02X}'.format(ord(b)) for b in mac)
+
+
 class wpsmon():
+    """Monitor object."""
 
     def __init__(self, interface, timeout_ms=250):
-
+        """Initialize monitor object."""
         self.captured = 0
         self.stations = {}
         self.alias = {}
@@ -54,21 +60,25 @@ class wpsmon():
         self.pc = pcapy.open_live(interface, 65536, 1, timeout_ms)
 
     def set_screen(self, screen):
+        """Set the screen."""
         self.screen = screen
 
     def set_stale_time(self, stale_time):
+        """Set stale time."""
         self.stale_time = stale_time
 
     def set_dead_time(self, dead_time):
+        """Set dead time."""
         self.dead_time = dead_time
 
     def set_only_alias(self, only_alias):
+        """Set set only alias."""
         self.only_alias = only_alias
 
     def update_ip_list(self):
+        """Update the ip list."""
         output = subprocess.check_output(['ip', 'neighbor', 'show'])
         ip_neigh = str(output).split('\n')
-
         for entry in ip_neigh:
             try:
                 m = re.split('[\s]+', entry)
@@ -78,24 +88,24 @@ class wpsmon():
             except:
                 pass
 
-    def mac_string(self, mac):
-        return ':'.join('{0:02X}'.format(ord(b)) for b in mac)
-
     def next(self):
-        (header, packet) = self.pc.next()
+        """Get and parse the next packet."""
+        header, packet = self.pc.next()
         if header and packet:
             self.parse_packet(header, packet)
 
     def update_timeout(self):
+        """Update timeout."""
         now = time.time()
         for station in self.stations.values():
             age = now - station['last']
             if self.stale_time > 0 and age > self.stale_time:
                 station['stale'] = True
             if self.dead_time > 0 and age > self.dead_time:
-                self.stations.pop(station['src'])
+                self.stations.pop(station['mac'])
 
-    def update_window(self):
+    def update_screen(self):
+        """Update screen."""
         self.screen.clear()
 
         # Update stale nodes
@@ -108,14 +118,12 @@ class wpsmon():
 
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
 
-        top = '\n [ {0} ][ captured {1} frames from {2} nodes ][ {3} ]\n\n'
-        self.screen.addstr(top.format(
-            self.prog, self.captured, nodes, now))
-
-        header = ' {bssid:18s} {ps:3s} {frames:7s} {slept:5s}' \
+        top = '[{0}][frames: {1}][nodes: {2}][date: {3}]\n\n'
+        self.screen.addstr(top.format(self.prog, self.captured, nodes, now))
+        header = ' {mac:18s} {ps:3s} {frames:7s} {slept:5s} ' \
                  '{tout:>7s} {tmax:>7s}  {alias}\n\n'
         self.screen.addstr(header.format(**
-                           {'bssid': 'bssid',
+                           {'mac': 'mac',
                             'ps': 'ps',
                             'frames': 'frames',
                             'slept': 'slept',
@@ -145,31 +153,29 @@ class wpsmon():
             if self.only_alias and not station['alias']:
                 continue
 
-            fmt = ' {src:18s} {ps:<3d} {frames:<7d} {slept:<5d}'\
-                  '{tout:>7.1f} {tmax:>7.1f}  {alias}{ip}\n'
+            fmt = ' {mac:18s} {ps:<3d} {frames:<7d} {slept:<5d}'\
+                  '{tout:>7.1f} {tmax:>7.1f} {alias} {ip}\n'
             text = fmt.format(**station)
             if station['stale']:
                 color = curses.color_pair(3) | curses.A_BOLD
             elif station['ps']:
-                color = curses.color_pair(1) | curses.A_BOLD
+                color = curses.color_pair(1)
             else:
                 color = curses.color_pair(2)
-            try:
-                self.screen.addstr(text, color)
-            except:
-                # Too many clients to show
-                break
+            self.screen.addstr(text, color)
 
         # Show help text
-        shortcuts = "q: quit | r: reset counters | R: reset nodes"
-        self.screen.addstr(maxy-1, 1, shortcuts)
+        footer = "q: quit | r: reset counters | R: reset nodes"
+        self.screen.addstr(maxy - 1, 1, footer)
 
         self.screen.refresh()
 
     def add_alias(self, host, name):
-            self.alias[host.lower()] = name
+        """Add alias."""
+        self.alias[host.lower()] = name
 
     def reset_counters(self):
+        """Reset counters."""
         self.captured = 0
         for station in self.stations.values():
             station['frames'] = 0
@@ -178,49 +184,39 @@ class wpsmon():
             station['tmax'] = 0
 
     def reset_nodes(self):
+        """Reset nodes."""
         self.stations = {}
         self.reset_counters()
 
     def parse_packet(self, header, packet):
-
+        """Parse packet."""
         self.captured += 1
-
-        # Read radiotap header length
-        try:
-            # todo let's output the errors somewhere.
-            tap = dpkt.radiotap.Radiotap(packet)
-        except dpkt.Error:
-            return
-        except KeyError:
-            return
-
+        # todo let's output the errors somewhere.
+        tap = dpkt.radiotap.Radiotap(packet)
         tap_len = socket.ntohs(tap.length)
 
         # Parse IEEE80211 header
-        try:
-            wlan = dpkt.ieee80211.IEEE80211(packet[tap_len:])
-        except dpkt.Error:
-            return
+        wlan = dpkt.ieee80211.IEEE80211(packet[tap_len:])
 
         # Currently we only care about data frames
         if wlan.type is not dpkt.ieee80211.DATA_TYPE:
             return
 
         ps = wlan.pwr_mgt
-        src = self.mac_string(wlan.data_frame.src).lower()
+        mac = mac_string(wlan.data_frame.src).lower()
 
         # Lookup station
-        station = self.stations.get(src)
+        station = self.stations.get(mac)
 
         # Get current time
         now = time.time()
 
         # New station
         if not station:
-            self.stations[src] = {}
-            station = self.stations[src]
-            station['src'] = src
-            station['alias'] = self.alias.get(src, '')
+            self.stations[mac] = {}
+            station = self.stations[mac]
+            station['mac'] = mac
+            station['alias'] = self.alias.get(mac, '')
             station['ip'] = ''
             station['created'] = now
             station['frames'] = 0
@@ -253,27 +249,33 @@ class wpsmon():
 
         # Try to set IP if empty
         if station['ip'] == '':
-            station['ip'] = self.ips.get(src, '')
+            station['ip'] = self.ips.get(mac, '')
             if station['ip'] != '' and station['alias'] != '':
                 station['ip'] = ' (' + station['ip'] + ')'
 
         # Station is not stale
         station['stale'] = False
 
-def alias_split(alias):
+
+def parse_alias_pair(alias):
+    """Parse alias mac, name pair."""
     match = re.match('(..:..:..:..:..:..)=(.*)', alias, flags=re.IGNORECASE)
     if not match:
         raise RuntimeError('Failed to parse alias: ' + alias)
     return match.group(1), match.group(2)
 
+
 def alias_type(alias):
+    """parse alias argument."""
     try:
-        host, name = alias_split(alias)
+        host, name = parse_alias_pair(alias)
     except Exception as e:
         raise argparse.ArgumentTypeError(e)
     return (host, name)
 
+
 def main():
+    """Main function."""
     formatter = argparse.RawTextHelpFormatter
 
     parser = argparse.ArgumentParser(description=__doc__,
@@ -321,7 +323,7 @@ def main():
                 # Skip comments and empty lines
                 if re.match('^\s*(#.*)?$', line):
                     continue
-                host, name = alias_split(line)
+                host, name = parse_alias_pair(line)
                 mon.add_alias(host, name)
 
     mon.set_only_alias(args.only_alias)
@@ -347,26 +349,33 @@ def main():
     while True:
         now = time.time()
         if now > last_update + 0.1:
-            mon.update_window()
+            try:
+                mon.update_screen()
+            except:
+                pass
             last_update = now
         try:
             mon.next()
-            ch = stdscr.getch()
-            if ch == ord('q'):
-                break
-            if ch == ord('r'):
-                mon.reset_counters()
-            if ch == ord('R'):
-                mon.reset_counters()
-                mon.reset_nodes()
         except KeyboardInterrupt:
             break
+        except:
+            pass
+
+        ch = stdscr.getch()
+        if ch == ord('q'):
+            break
+        if ch == ord('r'):
+            mon.reset_counters()
+        if ch == ord('R'):
+            mon.reset_counters()
+            mon.reset_nodes()
 
     # Cleanup curses
     curses.nocbreak()
     curses.echo()
     curses.curs_set(1)
     curses.endwin()
+
 
 if __name__ == '__main__':
     main()
