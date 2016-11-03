@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-'''
- Copyright (c) Steinwurf ApS 2016.
- All Rights Reserved
-
- Distributed under the "BSD License". See the accompanying LICENSE.rst file.
-'''
-
 """
+Copyright (c) Steinwurf ApS 2016.
+All Rights Reserved
+
+Distributed under the "BSD License". See the accompanying LICENSE.rst file.
+
 Dump 802.11 power-save status
 
 Add a monitor interface and specify channel before use:
