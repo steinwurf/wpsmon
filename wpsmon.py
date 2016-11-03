@@ -1,4 +1,10 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
+'''
+ Copyright (c) Steinwurf ApS 2016.
+ All Rights Reserved
+
+ Distributed under the "BSD License". See the accompanying LICENSE.rst file.
+'''
 
 """
 Dump 802.11 power-save status
