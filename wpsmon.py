@@ -22,6 +22,9 @@ Alternative setup:
   run wpsmon.py with <wlan device> as interface
 """
 
+## fix for print issue due to DPKT using print as error loging
+## http://stackoverflow.com/a/10106489/936269
+
 from __future__ import print_function
 
 import sys
@@ -35,6 +38,22 @@ import curses
 import subprocess
 import dpkt
 import pcapy
+
+try:
+    import __builtin__
+except ImportError:
+    # Python 3
+    import builtins as __builtin__
+
+def print(*args, **kwargs):
+    """My custom print() function."""
+    # Adding new arguments to the print function signature
+    # is probably a bad idea.
+    # Instead consider testing if custom argument keywords
+    # are present in kwargs
+    __builtin__.print()
+    return __builtin__.print(*args, **kwargs)
+
 
 
 def mac_string(mac):
@@ -160,6 +179,7 @@ class wpsmon():
             fmt = ' {mac:18s} {ps:<3d} {frames:<7d} {slept:<5d}'\
                   '{tout:>7.1f} {tmax:>7.1f} {alias} {ip}\n'
             text = fmt.format(**station)
+
             if station['stale']:
                 color = curses.color_pair(3) | curses.A_BOLD
             elif station['ps']:
