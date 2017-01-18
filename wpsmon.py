@@ -39,21 +39,18 @@ import subprocess
 import dpkt
 import pcapy
 
-try:
-    import __builtin__
-except ImportError:
-    # Python 3
-    import builtins as __builtin__
+print_on = True
 
-def print(*args, **kwargs):
-    """My custom print() function."""
-    # Adding new arguments to the print function signature
-    # is probably a bad idea.
-    # Instead consider testing if custom argument keywords
-    # are present in kwargs
-    __builtin__.print()
-    return __builtin__.print(*args, **kwargs)
 
+def my_custom_print(*args, **kwargs):
+    """Custom print function."""
+    if print_on:
+        return print(*args, **kwargs)
+    else:
+        return
+
+
+dpkt.__builtin__.print = my_custom_print
 
 
 def mac_string(mac):
@@ -220,7 +217,10 @@ class wpsmon():
         tap_len = socket.ntohs(tap.length)
 
         # Parse IEEE80211 header
+        global print_on
+        print_on = False
         wlan = dpkt.ieee80211.IEEE80211(packet[tap_len:])
+        print_on = True
 
         # Currently we only care about data frames
         if wlan.type is not dpkt.ieee80211.DATA_TYPE:
