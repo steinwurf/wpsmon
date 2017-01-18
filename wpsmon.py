@@ -95,6 +95,8 @@ class wpsmon():
     def next(self):
         """Get and parse the next packet."""
         header, packet = self.pc.next()
+        if header.getlen() in [37, 48, 51]:
+            return;
         if header and packet:
             self.parse_packet(header, packet)
 
