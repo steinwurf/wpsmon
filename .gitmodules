@@ -1,0 +1,3 @@
+[submodule "dpkt"]
+	path = dpkt
+	url = git@github.com:steinwurf/dpkt.git

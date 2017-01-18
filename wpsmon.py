@@ -50,7 +50,7 @@ def my_custom_print(*args, **kwargs):
         return
 
 
-dpkt.__builtin__.print = my_custom_print
+dpkt.print_function = my_custom_print
 
 
 def mac_string(mac):
