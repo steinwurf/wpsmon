@@ -36,21 +36,9 @@ import socket
 import re
 import curses
 import subprocess
-import dpkt
+#import dpkt
+import dpkt.build.lib.dpkt as dpkt
 import pcapy
-
-print_on = True
-
-
-def my_custom_print(*args, **kwargs):
-    """Custom print function."""
-    if print_on:
-        return print(*args, **kwargs)
-    else:
-        return
-
-
-dpkt.print_function = my_custom_print
 
 
 def mac_string(mac):
@@ -217,10 +205,7 @@ class wpsmon():
         tap_len = socket.ntohs(tap.length)
 
         # Parse IEEE80211 header
-        global print_on
-        print_on = False
         wlan = dpkt.ieee80211.IEEE80211(packet[tap_len:])
-        print_on = True
 
         # Currently we only care about data frames
         if wlan.type is not dpkt.ieee80211.DATA_TYPE:
@@ -375,6 +360,7 @@ def main():
         if now > last_update + 0.1:
             try:
                 mon.update_screen()
+
             except:
                 pass
             last_update = now
