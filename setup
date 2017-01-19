@@ -1,0 +1,7 @@
+#/usr/bin/env bash
+git submodule update --remote
+cd dpkt
+python setup.py build
+echo '' >> __init__.py
+echo '' >> build/__init__.py
+echo '' >> build/lib/__init__.py
